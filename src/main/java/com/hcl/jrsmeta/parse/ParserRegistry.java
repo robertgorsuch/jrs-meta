@@ -16,7 +16,8 @@ public final class ParserRegistry {
     /** Tasks 12 and 13 append DashboardParser and OlapParser here. */
     public static ParserRegistry defaults() {
         return new ParserRegistry(new GenericResourceParser(), List.of(
-                new ReportUnitParser(), new DataSourceParser(), new DomainParser(), new AdhocViewParser(), new GenericResourceParser()));
+                new ReportUnitParser(), new DataSourceParser(), new DomainParser(), new AdhocViewParser(),
+                new DashboardParser(), new GenericResourceParser()));
     }
 
     public DescriptorParser forType(String resourceType) {
