@@ -39,8 +39,13 @@ stitches). Incremental runs emit only changed assets plus `deletedAssetIds`; an 
 
 ## State and safety
 
-- `state/sync-state.json`: per-URI updateDate/version; checkpointed every `checkpointEvery` resources. A run
-  that dies before emitting forces the next run to be full.
+- `state/sync-state.json`: per-URI updateDate/version plus the child asset ids each resource produced;
+  checkpointed every `checkpointEvery` resources. A run that dies before emitting is resumed by the next run,
+  which re-emits everything checkpointed since the last completed run (or runs full if nothing ever completed).
+- Deletions cascade: `deletedAssetIds` lists deleted resources, their children, and children that disappeared
+  from a re-processed resource (a dropped report field, a removed dashboard tile).
+- A 404 on an include folder aborts the run instead of being treated as an empty folder, so a lost permission
+  or a renamed folder cannot turn into a mass deletion.
 - `state/audit-<ts>.jsonl`: every request (method, path, status, ms, account). Never contains credentials.
 - The connector only issues `GET` plus `POST /rest_v2/export` (dashboard deep parse). Set
   `deepParseDashboards=false` to avoid exports entirely.
@@ -53,6 +58,8 @@ stitches). Incremental runs emit only changed assets plus `deletedAssetIds`; an 
 - Ad hoc views use the live descriptor's data-source reference only (export-archive state parse is Phase 2).
 - Resource owner is not exposed by REST v2 descriptors; effective permissions are captured instead.
 - Stitching requires the stitch map; unmapped fingerprints become `PHYSICAL_DATASOURCE_SHADOW` assets.
+- Schedules and permissions are refreshed only when the owning resource changes or on `--full`; schedule a
+  periodic full crawl if schedule/ACL freshness matters.
 
 ## Tests
 
