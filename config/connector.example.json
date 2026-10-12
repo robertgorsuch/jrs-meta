@@ -1,0 +1,19 @@
+{
+  "serverId": "jrs-prod",
+  "baseUrl": "https://jrs.example.com/jasperserver-pro",
+  "includeFolders": ["/"],
+  "excludeFolders": ["/temp", "/public/Samples"],
+  "pageSize": 100,
+  "rateLimitPerSecond": 5,
+  "maxRetries": 4,
+  "requestTimeoutSeconds": 60,
+  "exportPollSeconds": 2,
+  "exportTimeoutSeconds": 300,
+  "checkpointEvery": 100,
+  "stateDir": "state",
+  "outputDir": "out",
+  "stitchMapFile": "config/stitch-map.json",
+  "fetchOperationalMetadata": true,
+  "deepParseDashboards": true,
+  "redactSqlLiterals": false
+}

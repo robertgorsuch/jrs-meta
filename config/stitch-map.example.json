@@ -1,0 +1,6 @@
+{
+  "stitches": [
+    { "fingerprint": "postgresql://db.example.com:5432/salesdb", "physicalAssetId": "catalog:datasource:1234", "note": "prod warehouse" },
+    { "fingerprint": "jndi://jdbc/foodmart", "physicalAssetId": "catalog:datasource:77", "note": "JNDI name resolved by app-server config" }
+  ]
+}

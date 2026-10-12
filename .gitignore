@@ -8,3 +8,4 @@ config/stitch-map.json
 *.iml
 .vscode/
 .superpowers/
+dependency-reduced-pom.xml
