@@ -1,0 +1,10 @@
+target/
+state/
+out/
+*.log
+config/connector.json
+config/stitch-map.json
+.idea/
+*.iml
+.vscode/
+.superpowers/
