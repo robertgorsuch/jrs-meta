@@ -78,6 +78,23 @@ class ConnectorRunTest {
         assertThat(em.batches.get(1).assets()).extracting(Asset::uri).contains("/reports/rev");
     }
 
+    @Test void execute_emitsDeletionsForDroppedChildrenAndChildrenOfDeletedParents() throws Exception {
+        CapturingEmitter em = new CapturingEmitter();
+        FakeRepository r = repo();
+        ConnectorRun run = new ConnectorRun(cfg(), r, ParserRegistry.defaults(), em, SyncState.load(tmp.resolve("sync-state.json")), StitchMap.empty());
+        run.execute(true, false);
+        // the report's query changes: field "one" disappears, field "two" appears
+        r.withFile("/reports/rev_files/main_jrxml", "<jasperReport><queryString><![CDATA[SELECT 2 AS two]]></queryString><field name=\"two\" class=\"java.lang.Integer\"/></jasperReport>");
+        r.listing.replaceAll(l -> l.uri().equals("/reports/rev") ? new ResourceLookup("/reports/rev", "Revenue", null, "reportUnit", null, "2024-02-01T00:00:00", 2) : l);
+        run.execute(false, false);
+        assertThat(em.batches.get(1).deletedAssetIds()).containsExactly("test|/reports/rev#field:one");
+        assertThat(em.batches.get(1).assets()).extracting(Asset::id).contains("test|/reports/rev#field:two");
+        // the report itself is deleted: its remaining child goes with it
+        r.listing.removeIf(l -> l.uri().equals("/reports/rev"));
+        run.execute(false, false);
+        assertThat(em.batches.get(2).deletedAssetIds()).containsExactlyInAnyOrder("test|/reports/rev", "test|/reports/rev#field:two");
+    }
+
     @Test void execute_dryRunNeitherFetchesNorEmitsNorSaves() throws Exception {
         CapturingEmitter em = new CapturingEmitter();
         FakeRepository r = repo();

@@ -53,19 +53,27 @@ public final class ConnectorRun {
 
         ChangeSet plan = new Crawler().plan(inventory, state, full);
         String mode = full || plan.forcedFull() ? "full" : "incremental";
-        if (plan.forcedFull()) warnings.add("previous run did not complete; forcing a full crawl");
+        if (plan.forcedFull()) warnings.add("previous run did not complete and no run ever completed; forcing a full crawl");
+        if (plan.resumed()) warnings.add("previous run did not complete; resuming by re-emitting resources checkpointed since the last completed run");
         log.info("{} crawl: {} to process, {} unchanged, {} deleted", mode, plan.toProcess().size(), plan.unchanged(), plan.deletedUris().size());
         if (dryRun) return new RunReport(runId, mode + " (dry-run)", info.edition(), inventory.size(), plan.toProcess().size(), 0, plan.unchanged(), plan.deletedUris().size(), 0, 0, 0, 0, warnings);
 
         state.beginRun(); state.save();
         ParseContext ctx = new ParseContext(repo, cfg.serverId(), cfg);
         List<Asset> assets = new ArrayList<>(); List<Ref> refs = new ArrayList<>();
+        List<String> deletedIds = new ArrayList<>();
+        for (String u : plan.deletedUris()) {                       // a deleted parent takes its children with it
+            deletedIds.add(Asset.idOf(cfg.serverId(), u));
+            deletedIds.addAll(state.childIds(u));
+        }
         int processed = 0, failed = 0, sinceCheckpoint = 0;
         for (ResourceLookup l : plan.toProcess()) {
             try {
                 ParseResult r = parsers.forType(l.resourceType()).parse(ctx, l);
                 assets.addAll(r.assets()); refs.addAll(r.refs()); warnings.addAll(r.warnings());
-                state.markProcessed(l); processed++;
+                List<String> childIds = r.assets().stream().filter(a -> a.parentId() != null).map(Asset::id).toList();
+                for (String old : state.childIds(l.uri())) if (!childIds.contains(old)) deletedIds.add(old);   // dropped field/tile/item
+                state.markProcessed(l, childIds); processed++;
             } catch (Exception e) {
                 failed++;
                 warnings.add("FAILED " + l.uri() + " (" + l.resourceType() + "): " + e.getMessage());
@@ -82,7 +90,6 @@ public final class ConnectorRun {
         Stitcher.StitchResult stitch = stitcher.stitch(cfg.serverId(), assets);
         List<Asset> allAssets = new ArrayList<>(assets); allAssets.addAll(stitch.shadowAssets());
         List<LineageEdge> allEdges = new ArrayList<>(lineage.edges()); allEdges.addAll(stitch.edges());
-        List<String> deletedIds = plan.deletedUris().stream().map(u -> Asset.idOf(cfg.serverId(), u)).toList();
 
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("inventory", inventory.size()); stats.put("processed", processed); stats.put("failed", failed); stats.put("unchanged", plan.unchanged());

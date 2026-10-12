@@ -44,6 +44,20 @@ class RestJrsRepositoryTest {
         assertThat(repo(100).listResources("/empty", true)).isEmpty();
     }
 
+    @Test void listResources_continuesOnShortPageWhenNextOffsetPresent() throws Exception {
+        // permission filtering can shorten a page while the server still reports more via Next-Offset
+        wm.stubFor(get(urlPathEqualTo(R + "/resources")).withQueryParam("offset", equalTo("0"))
+                .willReturn(okJson("{\"resourceLookup\":[" + lookup("/a", "reportUnit") + "]}").withHeader("Result-Count", "1").withHeader("Next-Offset", "2")));
+        wm.stubFor(get(urlPathEqualTo(R + "/resources")).withQueryParam("offset", equalTo("2"))
+                .willReturn(okJson("{\"resourceLookup\":[" + lookup("/b", "reportUnit") + "]}").withHeader("Result-Count", "1")));
+        assertThat(repo(2).listResources("/", true)).extracting(ResourceLookup::uri).containsExactly("/a", "/b");
+    }
+
+    @Test void listResources_missingIncludeFolderThrowsInsteadOfEmpty() {
+        wm.stubFor(get(urlPathEqualTo(R + "/resources")).willReturn(aResponse().withStatus(404)));
+        assertThatThrownBy(() -> repo(100).listResources("/gone", true)).isInstanceOf(JrsClientException.class).hasMessageContaining("/gone");
+    }
+
     @Test void listResources_fullLastPageStopsOn204() throws Exception {
         wm.stubFor(get(urlPathEqualTo(R + "/resources")).withQueryParam("offset", equalTo("0"))
                 .willReturn(okJson("{\"resourceLookup\":[" + lookup("/a", "reportUnit") + "]}")));

@@ -9,13 +9,17 @@ import java.util.regex.Pattern;
 /** JDBC URL -> connection fingerprint (spec §7.4 / §9.5). Credentials are stripped before anything is stored. */
 public final class JdbcUrlParser {
     private static final int CI = Pattern.CASE_INSENSITIVE;
-    private static final Pattern STD = Pattern.compile("^jdbc:(postgresql|mysql|mariadb|redshift|db2|vertica)://(?:[^@/]+@)?([^/:;?,]+)(?::(\\d+))?(?:,[^/]*)?/([^?;]*)", CI);
+    // db2 databases end at the first ':' because DB2 URLs carry properties as "/DB:key=value;key=value;"
+    private static final Pattern STD = Pattern.compile("^jdbc:(postgresql|mysql|mariadb|redshift|db2|vertica)://(?:[^@/]+@)?([^/:;?,]+)(?::(\\d+))?(?:,[^/]*)?/([^?;:]*)", CI);
     private static final Pattern MSSQL = Pattern.compile("^jdbc:sqlserver://([^;:\\\\]+)(?:\\\\[^;:]+)?(?::(\\d+))?(.*)$", CI);
     private static final Pattern ORACLE = Pattern.compile("^jdbc:oracle:(?:thin|oci):(?:[^@]*)@(?://)?([^:/]+)(?::(\\d+))?[:/]([^?;]+)", CI);
     private static final Pattern SNOW = Pattern.compile("^jdbc:snowflake://([^/?:]+)(?::(\\d+))?/?(?:\\?(.*))?$", CI);
     private static final Pattern GENERIC = Pattern.compile("^jdbc:([a-z0-9]+):", CI);
-    private static final Pattern CRED_PARAM = Pattern.compile("(?i)([?&;](?:password|pwd|user|username|secret|token)=)[^&;]*");
+    /** Any property whose key *contains* a secret-looking word (sslpassword, accessToken, trustStorePassword, ...KeyStorePassword) or names the user. */
+    private static final Pattern CRED_PARAM = Pattern.compile("(?i)([?&;:](?:[a-z0-9_.-]*(?:pass|pwd|secret|token|key|credential)[a-z0-9_.-]*|user|username|uid)=)[^&;]*");
     private static final Pattern CRED_USERINFO = Pattern.compile("//[^/@]+@");
+    /** Oracle thin/oci "user/password@" form has no '//' before the userinfo. */
+    private static final Pattern ORACLE_USERINFO = Pattern.compile("(?i)^(jdbc:oracle:(?:thin|oci):)[^@/]*/[^@]*@");
     static final Map<String, Integer> DEFAULT_PORTS = Map.of("postgresql", 5432, "mysql", 3306, "mariadb", 3306, "redshift", 5439,
             "sqlserver", 1433, "oracle", 1521, "snowflake", 443, "db2", 50000, "vertica", 5433);
 
@@ -23,7 +27,9 @@ public final class JdbcUrlParser {
 
     public static String sanitize(String url) {
         if (url == null) return null;
-        return CRED_PARAM.matcher(CRED_USERINFO.matcher(url).replaceAll("//***@")).replaceAll("$1***");
+        String s = ORACLE_USERINFO.matcher(url).replaceAll("$1***@");
+        s = CRED_USERINFO.matcher(s).replaceAll("//***@");
+        return CRED_PARAM.matcher(s).replaceAll("$1***");
     }
 
     public static Fingerprint parse(String url, String driverClass) {

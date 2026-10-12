@@ -19,8 +19,9 @@ class FolderFilterTest {
         assertThat(f.accepts("/reports/salesman/x")).isFalse();
         assertThat(f.accepts("/reports")).isFalse();
     }
-    @Test void hiddenFilesChildrenAreAlwaysSkipped() {
+    @Test void userFoldersNamedLikeHiddenFoldersAreNotDropped() {
+        // JRS omits hidden <resource>_files children unless showHiddenItems=true; a user folder "/Finance/Audit_files" must survive
         FolderFilter f = new FolderFilter(List.of("/"), List.of());
-        assertThat(f.accepts("/reports/x_files/main_jrxml")).isFalse();
+        assertThat(f.accepts("/Finance/Audit_files/r1")).isTrue();
     }
 }

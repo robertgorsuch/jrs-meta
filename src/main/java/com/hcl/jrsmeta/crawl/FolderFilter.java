@@ -2,7 +2,10 @@ package com.hcl.jrsmeta.crawl;
 
 import java.util.List;
 
-/** Include/exclude by folder prefix (segment-aligned). "_files" children are internal and always skipped. */
+/**
+ * Include/exclude by folder prefix (segment-aligned). Hidden "<resource>_files" children are not filtered here:
+ * the listing omits them unless showHiddenItems=true, and a name-based rule would drop user folders such as "/Finance/Audit_files".
+ */
 public final class FolderFilter {
     private final List<String> include;
     private final List<String> exclude;
@@ -13,7 +16,7 @@ public final class FolderFilter {
     }
 
     public boolean accepts(String uri) {
-        if (uri == null || uri.contains("_files/")) return false;
+        if (uri == null) return false;
         if (exclude.stream().anyMatch(p -> under(uri, p))) return false;
         return include.stream().anyMatch(p -> under(uri, p));
     }

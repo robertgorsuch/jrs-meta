@@ -13,6 +13,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class RestJrsRepository implements JrsRepository {
     private static final Logger log = LoggerFactory.getLogger(RestJrsRepository.class);
@@ -41,13 +42,17 @@ public final class RestJrsRepository implements JrsRepository {
         while (true) {
             String q = "/resources?folderUri=" + enc(folderUri) + "&recursive=" + recursive + "&limit=" + pageSize + "&offset=" + offset;
             JrsClient.Response r = client.get(q, JSON);
+            // A missing include folder must not look like an empty one: that would turn into mass deletion downstream.
+            if (r.status() == 404 && offset == 0) throw new JrsClientException(404, "include folder not found or not readable: " + folderUri);
             if (r.status() == 204 || r.status() == 404 || r.body().length == 0) break;        // 204 = no (more) resources
             int n = 0;
             for (JsonNode e : mapper.readTree(r.body()).path("resourceLookup")) { out.add(toLookup(e)); n++; }
             if (n == 0) break;
-            int next = r.header("Next-Offset").map(Integer::parseInt).orElse(offset + n);
-            if (n < pageSize || next <= offset) break;
-            offset = next;
+            // Permission filtering can shorten a page while Next-Offset says there is more; trust the header when present.
+            Optional<Integer> nextHeader = r.header("Next-Offset").map(String::trim).filter(v -> !v.isEmpty()).map(Integer::valueOf);
+            if (nextHeader.isPresent()) { if (nextHeader.get() <= offset) break; offset = nextHeader.get(); continue; }
+            if (n < pageSize) break;
+            offset += n;
         }
         log.debug("listed {} resources under {}", out.size(), folderUri);
         return out;
