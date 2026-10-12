@@ -17,7 +17,7 @@ public final class ParserRegistry {
     public static ParserRegistry defaults() {
         return new ParserRegistry(new GenericResourceParser(), List.of(
                 new ReportUnitParser(), new DataSourceParser(), new DomainParser(), new AdhocViewParser(),
-                new DashboardParser(), new GenericResourceParser()));
+                new DashboardParser(), new OlapParser(), new GenericResourceParser()));
     }
 
     public DescriptorParser forType(String resourceType) {
