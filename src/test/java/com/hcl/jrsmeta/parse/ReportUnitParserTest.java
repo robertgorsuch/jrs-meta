@@ -64,6 +64,15 @@ class ReportUnitParserTest {
         assertThat(r.warnings()).anyMatch(w -> w.contains("unknown.jasper"));
     }
 
+    @Test void resolveSubreport_relativeRepoNameResolvesAgainstCompanionFiles() {
+        // JRS sample reports use "repo:Name.jrxml" (no leading slash): relative to the report's own _files resources
+        Map<String, String> files = Map.of("Top5CustomersReport.jrxml", "/public/Samples/Reports/Geo_files/Top5CustomersReport.jrxml");
+        assertThat(ReportUnitParser.resolveSubreport("\"repo:Top5CustomersReport.jrxml\"", files)).contains("/public/Samples/Reports/Geo_files/Top5CustomersReport.jrxml");
+        assertThat(ReportUnitParser.resolveSubreport("\"repo:Top5CustomersReport\"", files)).contains("/public/Samples/Reports/Geo_files/Top5CustomersReport.jrxml");
+        assertThat(ReportUnitParser.resolveSubreport("\"repo:Missing.jrxml\"", files)).isEmpty();
+        assertThat(ReportUnitParser.resolveSubreport("\"repo:/abs/path\"", files)).contains("/abs/path");
+    }
+
     @Test void parse_inlineBase64Jrxml() throws Exception {
         String inline = "{\"uri\":\"/reports/i\",\"label\":\"I\",\"jrxml\":{\"jrxmlFile\":{\"label\":\"main\",\"type\":\"jrxml\",\"content\":\""
                 + Base64.getEncoder().encodeToString(JRXML.getBytes()) + "\"}}}";

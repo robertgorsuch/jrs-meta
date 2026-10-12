@@ -18,7 +18,9 @@ public final class LineageBuilder {
             Map<String, Object> attrs = new LinkedHashMap<>(ref.attributes());
             attrs.put("refKind", ref.kind().name());
             Confidence conf = Confidence.EXACT;
-            if (!knownUris.contains(ref.toUri())) {
+            boolean local = ref.toUri().startsWith(ref.fromUri() + "_files/");   // the consumer's own hidden companion resources
+            if (local) attrs.put("local", true);
+            if (!local && !knownUris.contains(ref.toUri())) {
                 attrs.put("unresolved", true);
                 conf = Confidence.INFERRED;
                 warnings.add(ref.fromUri() + " references " + ref.toUri() + " (" + ref.kind() + ") which is not in the crawled inventory");

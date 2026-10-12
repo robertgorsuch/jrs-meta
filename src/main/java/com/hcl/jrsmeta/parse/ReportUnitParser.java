@@ -10,6 +10,8 @@ import java.util.regex.Pattern;
 /** Spec §9.1: report descriptor + JRXML -> BI_REPORT, fields, parameters, and datasource/subreport/input-control refs. */
 public final class ReportUnitParser implements DescriptorParser {
     private static final Pattern REPO_URI = Pattern.compile("repo:(/[^\"'\\s]+)");
+    /** "repo:Name" or "repo:Name.jrxml" without a leading slash: relative to the report's own companion resources. */
+    private static final Pattern REPO_RELATIVE = Pattern.compile("repo:([^\"'\\s/][^\"'\\s]*)");
     private static final Pattern FILE_NAME = Pattern.compile("\"(?:[^\"]*/)?([^\"/]+\\.(?:jrxml|jasper))\"");
     private final JrxmlParser jrxmlParser = new JrxmlParser();
 
@@ -92,18 +94,25 @@ public final class ReportUnitParser implements DescriptorParser {
         return null;
     }
 
-    /** "repo:/abs/uri" -> that URI; "...child.jrxml" -> the matching companion resource; otherwise unresolved. */
+    /**
+     * "repo:/abs/uri" -> that URI; "repo:Name[.jrxml]" or "...child.jrxml" -> the matching companion resource by name;
+     * otherwise unresolved.
+     */
     static Optional<String> resolveSubreport(String expr, Map<String, String> resourceFiles) {
         Matcher m = REPO_URI.matcher(expr);
         if (m.find()) return Optional.of(m.group(1));
+        Matcher rel = REPO_RELATIVE.matcher(expr);
+        if (rel.find()) return byCompanionName(rel.group(1), resourceFiles);
         Matcher f = FILE_NAME.matcher(expr);
-        if (f.find()) {
-            String name = f.group(1);
-            String base = name.replaceAll("\\.(jrxml|jasper)$", "");
-            for (Map.Entry<String, String> e : resourceFiles.entrySet()) {
-                String k = e.getKey();
-                if (k.equals(name) || k.equals(base) || k.equals(base + ".jrxml") || k.equals(base + ".jasper")) return Optional.of(e.getValue());
-            }
+        if (f.find()) return byCompanionName(f.group(1), resourceFiles);
+        return Optional.empty();
+    }
+
+    private static Optional<String> byCompanionName(String name, Map<String, String> resourceFiles) {
+        String base = name.replaceAll("\\.(jrxml|jasper)$", "");
+        for (Map.Entry<String, String> e : resourceFiles.entrySet()) {
+            String k = e.getKey();
+            if (k.equals(name) || k.equals(base) || k.equals(base + ".jrxml") || k.equals(base + ".jasper")) return Optional.of(e.getValue());
         }
         return Optional.empty();
     }
