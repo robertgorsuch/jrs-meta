@@ -34,7 +34,9 @@ public final class ReportUnitParser implements DescriptorParser {
         attrs.put("alwaysPromptControls", d.path("alwaysPromptControls").asBoolean(false));
 
         Map<String, String> resourceFiles = new LinkedHashMap<>();   // name -> uri of the report's companion files
-        for (JsonNode r : d.path("resources")) {
+        JsonNode resources = d.path("resources");
+        if (resources.isObject()) resources = resources.path("resource");   // live JRS 10 wraps the list: {"resource":[...]}
+        for (JsonNode r : resources) {
             String name = Descriptors.text(r, "name");
             Descriptors.refUri(r.path("file")).ifPresent(u -> { if (name != null) resourceFiles.put(name, u); });
         }

@@ -73,6 +73,21 @@ class ReportUnitParserTest {
         assertThat(ReportUnitParser.resolveSubreport("\"repo:/abs/path\"", files)).contains("/abs/path");
     }
 
+    @Test void parse_resourcesWrappedInResourceObjectAsLiveJrsReturnsThem() throws Exception {
+        // JRS 10 returns "resources":{"resource":[...]} (wrapper object), not a bare array
+        String d = """
+            {"uri":"/reports/geo","label":"Geo",
+             "jrxml":{"jrxmlFileReference":{"uri":"/reports/geo_files/main"}},
+             "resources":{"resource":[{"name":"undo.png","file":{"fileReference":{"uri":"/reports/geo_files/undo.png"}}},
+                                      {"name":"Top5CustomersReport.jrxml","file":{"fileReference":{"uri":"/reports/geo_files/Top5CustomersReport.jrxml"}}}]}}
+            """;
+        String jrxml = "<jasperReport><queryString><![CDATA[SELECT 1]]></queryString><detail><band height=\"1\"><subreport><subreportExpression><![CDATA[\"repo:Top5CustomersReport.jrxml\"]]></subreportExpression></subreport></band></detail></jasperReport>";
+        FakeRepository repo = new FakeRepository().withDescriptor("/reports/geo", d).withFile("/reports/geo_files/main", jrxml);
+        ParseResult r = new ReportUnitParser().parse(ctx(repo, false), new ResourceLookup("/reports/geo", "Geo", null, "reportUnit", null, null, 1));
+        assertThat(r.refs()).contains(new Ref("/reports/geo", "/reports/geo_files/Top5CustomersReport.jrxml", Ref.RefKind.SUBREPORT));
+        assertThat(r.assets().get(0).attributes().get("unresolvedSubreports")).isEqualTo(List.of());
+    }
+
     @Test void parse_inlineBase64Jrxml() throws Exception {
         String inline = "{\"uri\":\"/reports/i\",\"label\":\"I\",\"jrxml\":{\"jrxmlFile\":{\"label\":\"main\",\"type\":\"jrxml\",\"content\":\""
                 + Base64.getEncoder().encodeToString(JRXML.getBytes()) + "\"}}}";
